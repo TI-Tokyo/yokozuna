@@ -36,8 +36,6 @@ DIALYZER_FLAGS = -Wno_return
 TEST_PLT = .yokozuna_test_dialyzer_plt
 RIAK_TEST_PATH = riak_test
 
-include tools.mk
-
 ${TEST_PLT}: compile-riak-test
 	@if [ -d $(RIAK_TEST_PATH) ]; then \
 		if [ -f $(TEST_PLT) ]; then \
@@ -91,7 +89,7 @@ dialyzer_rt: deps ${PLT} ${LOCAL_PLT} $(TEST_PLT) dialyzer-rt-run
 ##
 ## NOTE: Must add purity to ERL_LIBS for these targets to work
 build_purity_plt:
-	@erl -noshell -run purity_cli main -extra --build-plt --apps $(APPS) deps/*/ebin ebin
+	@erl -noshell -run purity_cli main -extra --build-plt --apps $(APPS) _build/default/libs/*/ebin ebin
 
 purity:
 	@erl -noshell -run purity_cli main -extra -v -s stats --with-reasons -l 3 --apps ebin
