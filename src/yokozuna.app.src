@@ -4,17 +4,18 @@
   {description, "Integrating Apache Solr into Riak"},
   {vsn, git},
   {registered, []},
-  {applications, [
-                  kernel,
-                  stdlib,
-                  ibrowse,
-                  fuse,
-                  riak_core,
-                  riak_kv,
-                  kvc,
-                  clique,
-                  riak_api
-                 ]},
-  {mod, { yz_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    ibrowse,
+    fuse,
+    riak_core,
+    riak_kv,
+    kvc,
+    clique,
+    riak_api
+   ]},
+  {mod, {yz_app, []}},
   {env, []}
- ]}.
+ ]
+}.
