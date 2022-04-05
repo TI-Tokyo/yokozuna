@@ -54,6 +54,6 @@ At this point you should see `.beam` files in `riak_test/ebin`.
 Finally, run the test.
 
     cd <path-to-riak_test-repo>
-    ./riak_test -c rtdev -d <path-to-yokozuna-repo>/riak_test/ebin/ | tee rt.out
+    ./riak_test -c rtdev -d <path-to-yokozuna-repo>/misc/bench/bin | tee rt.out
 
 [rt_readme]: https://github.com/basho/riak_test/blob/master/README.md
