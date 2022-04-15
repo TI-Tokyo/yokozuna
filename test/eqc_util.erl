@@ -103,8 +103,6 @@ start_mock_components(Options) ->
     RingSize = proplists:get_value(ring_size, Options, 64),
     application:load(riak_core),
     application:load(riak_kv),
-    application:load(lager),
-    ok = lager:start(),
     riak_core_metadata_manager:start_link([{data_dir, "eqc_test_data"}]),
     riak_core_table_owner:start_link(),
     riak_core_throttle:init(),
@@ -119,8 +117,6 @@ start_mock_components(Options) ->
 
 cleanup_mock_components() ->
     riak_core_ring_manager:cleanup_ets(test),
-    application:stop(lager),
-    application:unload(lager),
     stop_process(riak_core_ring_manager),
     stop_process(riak_core_metadata_manager),
     stop_process(riak_kv_entropy_manager),

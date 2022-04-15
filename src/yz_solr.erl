@@ -48,6 +48,7 @@
          search/3]).
 -include_lib("riak_core/include/riak_core_bucket_type.hrl").
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(CORE_ALIASES, [{index_dir, instanceDir},
                        {cfg_file, config},
@@ -336,10 +337,10 @@ search(Core, Headers, Params) ->
         {ok, "200", RHeaders, Resp} -> {RHeaders, Resp};
         {ok, CodeStr, _, Err} ->
             {Code, _} = string:to_integer(CodeStr),
-            lager:error("Solr search ~p failed. Response was: ~p:~p", [URL, Err, CodeStr]),
+            logger:error("Solr search ~p failed. Response was: ~p:~p", [URL, Err, CodeStr]),
             throw({solr_error, {Code, URL, Err}});
         Err ->
-            lager:error("ibrowse error making Solr search ~p request. Error was: ~p", [URL, Err]),
+            logger:error("ibrowse error making Solr search ~p request. Error was: ~p", [URL, Err]),
             throw({"Failed to search", URL, Err})
     end.
 

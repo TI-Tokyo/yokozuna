@@ -21,6 +21,7 @@
 -module(yz_index_hashtree).
 -behaviour(gen_server).
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -76,7 +77,7 @@ insert(sync, Id, BKey, Hash, Tree, Options) ->
         gen_server:call(Tree, {insert, Id, BKey, Hash, Options}, infinity)
     catch
         Error ->
-            lager:error("Synchronous insert into hashtree failed for reason ~p", [Error])
+            logger:error("Synchronous insert into hashtree failed for reason ~p", [Error])
     end.
 
 %% @doc Delete the `BKey' from `Tree'.  The id will be determined from
@@ -102,7 +103,7 @@ delete(sync, Id, BKey, Tree) ->
         gen_server:call(Tree, {delete, Id, BKey}, infinity)
     catch
         Error ->
-            lager:error("Synchronous delete from hashtree failed for reason ~p", [Error])
+            logger:error("Synchronous delete from hashtree failed for reason ~p", [Error])
     end.
 
 -spec update({p(), n()}, tree()) -> ok.
@@ -174,7 +175,7 @@ init([Index, RPs]) ->
         undefined ->
             case riak_kv_entropy_manager:enabled() of
                 true ->
-                    lager:warning("Neither yokozuna/anti_entropy_data_dir or "
+                    logger:warning("Neither yokozuna/anti_entropy_data_dir or "
                                   "riak_core/platform_data_dir are defined. "
                                   "Disabling active anti-entropy."),
                     riak_kv_entropy_manager:disable();
@@ -221,7 +222,7 @@ handle_call({get_lock, Type, Pid}, _From, S) ->
     {reply, Reply, S2};
 
 handle_call({update_tree, Id, Callback}, From, S) ->
-    lager:debug("Updating tree for partition ~p preflist ~p",
+    logger:debug("Updating tree for partition ~p preflist ~p",
                [S#state.index, Id]),
     apply_tree(Id,
                fun(Tree) ->
@@ -256,7 +257,7 @@ handle_cast(poke, S) ->
     {noreply, S2};
 
 handle_cast(build_failed, S) ->
-    lager:debug("Requeuing tree ~p", [S#state.index]),
+    logger:debug("Requeuing tree ~p", [S#state.index]),
     yz_entropy_mgr:requeue_poke(S#state.index),
     S2 = S#state{built=false},
     {noreply, S2};
@@ -300,7 +301,7 @@ handle_info({'DOWN', Ref, _, _, _}, S) ->
     S2 = maybe_release_lock(Ref, S),
     {noreply, S2};
 handle_info(Message, S) ->
-    lager:error("Received unhandled message with message ~p", [Message]),
+    logger:error("Received unhandled message with message ~p", [Message]),
     {noreply, S}.
 
 terminate(_Reason, S) ->
@@ -323,7 +324,7 @@ determine_data_root() ->
             case ?DATA_DIR of
                 {ok, PlatformRoot} ->
                     Root = filename:join(PlatformRoot, "yz_anti_entropy"),
-                    lager:warning("Config yokozuna/anti_entropy_data_dir is "
+                    logger:warning("Config yokozuna/anti_entropy_data_dir is "
                                   "missing. Defaulting to: ~p", [Root]),
                     application:set_env(?YZ_APP_NAME, anti_entropy_data_dir, Root),
                     Root;
@@ -389,7 +390,7 @@ do_new_tree(Id, S=#state{trees=Trees, path=Path}, MarkType) ->
 -spec do_get_lock(term(), pid(), state()) ->
                          {ok | not_build | already_locked, state()}.
 do_get_lock(_, _, S) when S#state.built /= true ->
-    lager:debug("Not built: ~p", [S#state.index]),
+    logger:debug("Not built: ~p", [S#state.index]),
     {not_built, S};
 
 do_get_lock(_Type, Pid, S=#state{lock=undefined}) ->
@@ -398,7 +399,7 @@ do_get_lock(_Type, Pid, S=#state{lock=undefined}) ->
     {ok, S2};
 
 do_get_lock(_, _, S) ->
-    lager:debug("Already locked: ~p", [S#state.index]),
+    logger:debug("Already locked: ~p", [S#state.index]),
     {already_locked, S}.
 
 -spec maybe_release_lock(reference(), state()) -> state().
@@ -435,7 +436,7 @@ apply_tree(Id, Fun, S=#state{trees=Trees}) ->
 
 -spec do_build_finished(state()) -> state().
 do_build_finished(S=#state{index=Index, built=_Pid, trees=Trees0}) ->
-    lager:debug("Finished YZ build: ~p", [Index]),
+    logger:debug("Finished YZ build: ~p", [Index]),
     Trees = orddict:map(fun(_Id, Tree) ->
                             hashtree:flush_buffer(Tree)
                         end, Trees0),
@@ -526,14 +527,14 @@ handle_unexpected_key(Id, Key, S=#state{index=Partition}) ->
             %% N to 4, and the object now maps to preflist '{<index>, 4}' which
             %% may not have an existing hashtree if there were previously no
             %% objects with N=4.
-            lager:info("Partition/tree ~p/~p does not exist to hold object ~p",
+            logger:info("Partition/tree ~p/~p does not exist to hold object ~p",
                        [Partition, Id, Key]),
             case S#state.built of
                 true ->
                     %% If the tree is already built, clear the tree to trigger
                     %% a rebuild that will re-distribute objects into the
                     %% proper hashtrees based on current N values.
-                    lager:info("Clearing tree to trigger future rebuild"),
+                    logger:info("Clearing tree to trigger future rebuild"),
                     clear_tree(S);
                 _ ->
                     %% Initialize a new index_n tree to prevent future errors.
@@ -557,7 +558,7 @@ do_compare(Id, Remote, AccFun, Acc, From, S) ->
     case orddict:find(Id, S#state.trees) of
         error ->
             %% This case shouldn't happen, but might as well safely handle it.
-            lager:warning("Tried to compare nonexistent tree "
+            logger:warning("Tried to compare nonexistent tree "
                           "(vnode)=~p (preflist)=~p", [S#state.index, Id]),
             gen_server:reply(From, []),
             S;
@@ -605,7 +606,7 @@ maybe_expire(S) ->
 
 -spec clear_tree(state()) -> state().
 clear_tree(S=#state{index=Index}) ->
-    lager:debug("Clearing YZ AAE tree: ~p", [S#state.index]),
+    logger:debug("Clearing YZ AAE tree: ~p", [S#state.index]),
     S2 = destroy_trees(S),
     IndexN = riak_kv_util:responsible_preflists(Index),
     S3 = init_trees(IndexN, true, S2#state{trees=orddict:new()}),
@@ -642,7 +643,7 @@ close_trees(S=#state{trees=Trees, closed=false}, _WillDestroy=false) ->
                           %% Not marking close cleanly to avoid the
                           %% cost of a full rebuild on shutdown.
                           full ->
-                              lager:info("Deliberately marking YZ hashtree ~p"
+                              logger:info("Deliberately marking YZ hashtree ~p"
                                          ++ " for full rebuild on next restart",
                                          [IdxN]),
                               hashtree:flush_buffer(Tree);
@@ -650,7 +651,7 @@ close_trees(S=#state{trees=Trees, closed=false}, _WillDestroy=false) ->
                               HT = hashtree:update_tree(Tree),
                               hashtree:mark_clean_close(IdxN, HT)
                       catch _:Err ->
-                              lager:warning("Failed to flush/update trees"
+                              logger:warning("Failed to flush/update trees"
                                             ++ " during close | Error: ~p", [Err]),
                               Tree
                       end,
@@ -682,7 +683,7 @@ build_or_rehash(Tree, S) ->
 build_or_rehash(Tree, Locked, Type, #state{index=Index, trees=Trees}) ->
     case {Locked, Type} of
         {true, build} ->
-            lager:debug("Starting YZ AAE tree build: ~p", [Index]),
+            logger:debug("Starting YZ AAE tree build: ~p", [Index]),
             Indexes = yz_index:get_indexes_from_meta(),
             FusesNotBlown = yz_fuse:check_all_fuses_not_blown(Indexes),
             case FusesNotBlown of
@@ -691,16 +692,16 @@ build_or_rehash(Tree, Locked, Type, #state{index=Index, trees=Trees}) ->
                     handle_iter_keys(Tree, Index, IterKeys);
                 false ->
                     ?ERROR("YZ AAE did not run due to blown fuses/solr_cores or out-of-sync indexes."),
-                    lager:debug("YZ AAE tree build failed: ~p", [Index]),
+                    logger:debug("YZ AAE tree build failed: ~p", [Index]),
                     gen_server:cast(Tree, build_failed)
             end;
         {true, rehash} ->
-            lager:debug("Starting YZ AAE tree rehash: ~p", [Index]),
+            logger:debug("Starting YZ AAE tree rehash: ~p", [Index]),
             _ = [hashtree:rehash_tree(T) || {_,T} <- Trees],
-            lager:debug("Finished YZ AAE tree rehash: ~p", [Index]),
+            logger:debug("Finished YZ AAE tree rehash: ~p", [Index]),
             gen_server:cast(Tree, build_finished);
         {Locked, Type} ->
-            lager:debug("Could not build. {~p, ~p}", [Locked, Type]),
+            logger:debug("Could not build. {~p, ~p}", [Locked, Type]),
             gen_server:cast(Tree, build_failed)
     end.
 
@@ -739,7 +740,7 @@ get_all_locks(Type, Pid) ->
     try yz_entropy_mgr:get_lock(Type, Pid) of
         ok -> true;
         Other ->
-            lager:debug("Could not get lock: ~p", [Other]),
+            logger:debug("Could not get lock: ~p", [Other]),
             false
     catch exit:{timeout,_} ->
         yz_entropy_mgr:release_lock(Pid),
@@ -760,16 +761,16 @@ maybe_expire_caps_check(S) ->
 
 -spec handle_iter_keys(pid(), p(), [ok|timeout|not_available|error]) -> ok.
 handle_iter_keys(Tree, Index, []) ->
-    lager:debug("Finished YZ AAE tree build: ~p", [Index]),
+    logger:debug("Finished YZ AAE tree build: ~p", [Index]),
     gen_server:cast(Tree, build_finished),
     ok;
 handle_iter_keys(Tree, Index, IterKeys) ->
     case lists:all(fun(V) -> V == ok end, IterKeys)  of
         true ->
-            lager:debug("Finished YZ AAE tree build: ~p", [Index]),
+            logger:debug("Finished YZ AAE tree build: ~p", [Index]),
             gen_server:cast(Tree, build_finished);
         _ ->
-            lager:debug("YZ AAE tree build failed: ~p", [Index]),
+            logger:debug("YZ AAE tree build failed: ~p", [Index]),
             gen_server:cast(Tree, build_failed)
     end.
 

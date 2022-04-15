@@ -30,6 +30,7 @@
          init/1,
          terminate/2]).
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -record(state, {
           %% The ring used to calculate the current cached plan.
@@ -97,14 +98,14 @@ handle_info(tick, S) ->
     {noreply, S#state{ring_used=Ring}};
 
 handle_info(Req, S) ->
-    lager:warning("Unexpected request ~p", [Req]),
+    logger:warning("Unexpected request ~p", [Req]),
     {noreply, S}.
 
 handle_call(get_ring_used, _, S) ->
     Ring = S#state.ring_used,
     {reply, Ring, S};
 handle_call(Req, _, S) ->
-    lager:warning("Unexpected request ~p", [Req]),
+    logger:warning("Unexpected request ~p", [Req]),
     {noreply, S}.
 
 code_change(_, S, _) ->

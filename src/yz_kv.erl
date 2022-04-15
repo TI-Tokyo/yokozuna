@@ -25,6 +25,7 @@
 -compile([export_all, nowarn_export_all]).
 -include_lib("riak_core/include/riak_core_bucket_type.hrl").
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -99,7 +100,7 @@ get_obj_ct(MD) ->
     case dict:find(<<"content-type">>, MD) of
         {ok, CT} -> CT;
         _ ->
-            lager:warning("No Content-Type provided in the Riak Object Metadata"
+            logger:warning("No Content-Type provided in the Riak Object Metadata"
                           " using ~p as a default", [?DEFAULT_CTYPE]),
             ?DEFAULT_CTYPE
     end.
@@ -318,14 +319,14 @@ first_partition([{Partition, _}|_]) ->
 get_tree(Partition) ->
     case erlang:get({tree,Partition}) of
         undefined ->
-            lager:debug("Tree cache miss (undefined): ~p", [Partition]),
+            logger:debug("Tree cache miss (undefined): ~p", [Partition]),
             get_and_set_tree(Partition);
         Pid ->
             case is_process_alive(Pid) of
                 true ->
                     Pid;
                 false ->
-                    lager:debug("Tree cache miss (dead): ~p", [Partition]),
+                    logger:debug("Tree cache miss (dead): ~p", [Partition]),
                     get_and_set_tree(Partition)
             end
     end.

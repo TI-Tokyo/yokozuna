@@ -21,9 +21,10 @@
 -module(yz_exchange_fsm).
 -behaviour(gen_fsm).
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
 -compile([export_all, nowarn_export_all]).
 
--compile({nowarn_deprecated_function, 
+-compile({nowarn_deprecated_function,
             [{gen_fsm, start, 3},
                 {gen_fsm, send_event, 2}]}).
 
@@ -89,7 +90,7 @@ init([Index, Preflist, YZTree, KVTree, Manager]) ->
                built=0,
                timeout=?YZ_ENTROPY_TIMEOUT},
     gen_fsm:send_event(self(), start_exchange),
-    lager:debug("Starting exchange between KV and Yokozuna: ~p", [Index]),
+    logger:debug("Starting exchange between KV and Yokozuna: ~p", [Index]),
     {ok, prepare_exchange, S}.
 
 handle_event(_Event, StateName, S) ->
@@ -101,7 +102,7 @@ handle_sync_event(_Event, _From, StateName, S) ->
 handle_info({'DOWN', _, _, _, _} = Msg, _StateName, S) ->
     %% Either the entropy manager, local hashtree, or remote hashtree has
     %% exited. Stop exchange.
-    lager:notice(
+    logger:notice(
         "YZ Exchange FSM received a DOWN message from a process it was "
         "monitoring.  The received message is: ~p", [Msg]),
     {stop, normal, S};
@@ -132,11 +133,11 @@ prepare_exchange(start_exchange, S) ->
         {next_state, update_trees, S}
     catch
         error:{badmatch, Reason} ->
-            lager:debug("An error occurred preparing exchange ~p", [Reason]),
+            logger:debug("An error occurred preparing exchange ~p", [Reason]),
             send_exchange_status(Reason, S),
             {stop, normal, S};
         error:{timeout, Reason} ->
-            lager:debug("Timed out attempting to get a lock: ~p", [Reason]),
+            logger:debug("Timed out attempting to get a lock: ~p", [Reason]),
             send_exchange_status(build_limit_reached, S),
             {stop, normal, S}
     end;
@@ -162,12 +163,12 @@ update_trees(start_exchange, S=#state{kv_tree=KVTree,
     {next_state, update_trees, S};
 
 update_trees({drain_error, Reason}, S) ->
-    lager:error("Drain failed with reason ~p", [Reason]),
+    logger:error("Drain failed with reason ~p", [Reason]),
     send_exchange_status(drain_failed, S),
     {stop, normal, S};
 
 update_trees({not_responsible, Index, IndexN}, S) ->
-    lager:debug("Index ~p does not cover preflist ~p", [Index, IndexN]),
+    logger:debug("Index ~p does not cover preflist ~p", [Index, IndexN]),
     send_exchange_status({not_responsible, Index, IndexN}, S),
     {stop, normal, S};
 
@@ -175,10 +176,10 @@ update_trees({tree_built, Module, _, _}, S) ->
     Built = S#state.built + 1,
     case Built of
         2 ->
-            lager:debug("Tree ~p built; Moving to key exchange", [Module]),
+            logger:debug("Tree ~p built; Moving to key exchange", [Module]),
             {next_state, key_exchange, S, 0};
         _ ->
-            lager:debug("Tree ~p built; staying in update_trees state", [Module]),
+            logger:debug("Tree ~p built; staying in update_trees state", [Module]),
             {next_state, update_trees, S#state{built=Built}}
     end.
 
@@ -186,7 +187,7 @@ key_exchange(timeout, S=#state{index=Index,
                                yz_tree=YZTree,
                                kv_tree=KVTree,
                                index_n=IndexN}) ->
-    lager:debug("Starting key exchange for partition ~p preflist ~p",
+    logger:debug("Starting key exchange for partition ~p preflist ~p",
                 [Index, IndexN]),
 
     Remote = fun(get_bucket, {L, B}) ->
@@ -206,12 +207,12 @@ key_exchange({compare_complete, CompareResult}, State=#state{index=Index,
                                                          index_n=IndexN}) ->
     case CompareResult of
         {error, Reason} ->
-            lager:error("An error occurred comparing hashtrees.  Error: ~p", [Reason]);
+            logger:error("An error occurred comparing hashtrees.  Error: ~p", [Reason]);
         {0, 0} ->
             yz_kv:update_aae_exchange_stats(Index, IndexN, 0);
         {YZDeleteCount, YZRepairCount} ->
             yz_stat:detected_repairs(YZDeleteCount + YZRepairCount),
-            lager:info("Will delete ~p keys and repair ~b keys of partition ~p for preflist ~p",
+            logger:info("Will delete ~p keys and repair ~b keys of partition ~p for preflist ~p",
                        [YZDeleteCount, YZRepairCount, Index, IndexN])
     end,
     {stop, normal, State}.
@@ -345,7 +346,7 @@ spawn_update_request(ToWhom, Module, Tree, Index, IndexN, Callback) ->
 
 %% @private
 do_timeout(S=#state{index=Index, index_n=Preflist}) ->
-    lager:info("Timeout during exchange of partition ~p for preflist ~p ",
+    logger:info("Timeout during exchange of partition ~p for preflist ~p ",
                [Index, Preflist]),
     send_exchange_status({timeout, Index, Preflist}, S),
     {stop, normal, S}.

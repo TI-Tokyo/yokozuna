@@ -328,13 +328,13 @@
 %%% Logging
 %%%===================================================================
 
--define(DEBUG(Fmt, Args), lager:debug(Fmt, Args)).
--define(ERROR(Fmt), lager:error(Fmt)).
--define(ERROR(Fmt, Args), lager:error(Fmt, Args)).
--define(INFO(Fmt, Args), lager:info(Fmt, Args)).
--define(NOTICE(Fmt, Args), lager:notice(Fmt, Args)).
--define(NOTICE(Fmt), lager:notice(Fmt)).
--define(WARN(Fmt, Args), lager:warning(Fmt, Args)).
+-define(DEBUG(Fmt, Args), logger:debug(Fmt, Args)).
+-define(ERROR(Fmt), logger:error(Fmt)).
+-define(ERROR(Fmt, Args), logger:error(Fmt, Args)).
+-define(INFO(Fmt, Args), logger:info(Fmt, Args)).
+-define(NOTICE(Fmt, Args), logger:notice(Fmt, Args)).
+-define(NOTICE(Fmt), logger:notice(Fmt)).
+-define(WARN(Fmt, Args), logger:warning(Fmt, Args)).
 
 %%%===================================================================
 %%% Indexes

@@ -19,6 +19,7 @@
 -module(yz_solrq_worker).
 
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -behavior(gen_server).
 
@@ -377,13 +378,13 @@ handle_info({timeout, TimerRef, flush},
     {noreply, flush(State#state{flush_timer_ref = undefined})};
 
 handle_info({timeout, _TimerRef, flush}, State) ->
-    lager:debug("Received timeout from stale Timer Reference"),
+    logger:debug("Received timeout from stale Timer Reference"),
     {noreply, State};
 
 handle_info({'DOWN', MonitorRef, process, DPid, Info},
     #state{draining=Draining, drain_info = {DPid, _Token, MonitorRef}} = State)
     when Draining =:= true; Draining =:= wait_for_drain_complete ->
-    lager:info("Drain FSM terminated for reason ~p without notifying of drain_complete.  Resuming normal operations.", [Info]),
+    logger:info("Drain FSM terminated for reason ~p without notifying of drain_complete.  Resuming normal operations.", [Info]),
     NewState = stop_draining(State),
     {noreply, NewState};
 
@@ -447,7 +448,7 @@ handle_batch(ok, #state{draining = true,
 %% yz_solrq_drain_fsm. Do nothing as we had already emptied
 %% our queue.
 handle_batch(ok, #state{draining = wait_for_drain_complete} = State) ->
-    lager:debug("DBG: Received a batch_complete message while waiting for drain complete"),
+    logger:debug("DBG: Received a batch_complete message while waiting for drain complete"),
     State.
 
 drain_queue(#state{in_flight_len = 0} = State) ->
@@ -484,7 +485,7 @@ maybe_send_reply(From, #state{pending_processes = PendingProcesses} = State) ->
     end.
 
 log_blocked_process(From, State) ->
-    lager:info("Blocking process ~p due to SolrQ ~p exceeding HWM of ~p", [
+    logger:info("Blocking process ~p due to SolrQ ~p exceeding HWM of ~p", [
         From,
         self(),
         State#state.queue_hwm]),
@@ -493,12 +494,12 @@ log_blocked_process(From, State) ->
 %% @doc Enqueue the entry and return updated state.
 enqueue(E, #state{draining = false,
                   queue = Q} = State) ->
-    lager:debug("enqueue to queue, len=~p",
+    logger:debug("enqueue to queue, len=~p",
                [queue:len(Q)+1]),
     State#state{queue = queue:in(E, Q)};
 enqueue(E, #state{draining = _Draining,
                   aux_queue = A} = State) ->
-    lager:debug("enqueue to aux_queue, len=~p",
+    logger:debug("enqueue to aux_queue, len=~p",
                [queue:len(A)+1]),
     State#state{aux_queue = queue:in(E, A)}.
 
@@ -691,14 +692,14 @@ maybe_unblock_processes(#state{pending_processes = PendingProcesses, queue_hwm =
     end.
 
 unblock_process(PendingProcess, HWM) ->
-    lager:debug("Unblocking process ~p due to SolrQ ~p going below HWM of ~p", [
+    logger:debug("Unblocking process ~p due to SolrQ ~p going below HWM of ~p", [
         PendingProcess,
         self(),
         HWM]),
     gen_server:reply(PendingProcess, ok).
 
 maybe_start_flush_timer(#state{delayms_max = infinity} = State) ->
-    lager:debug("Infinite delay, will not start timer and flush."),
+    logger:debug("Infinite delay, will not start timer and flush."),
     State#state{flush_timer_ref = undefined};
 maybe_start_flush_timer(#state{flush_timer_ref = undefined,
                                fuse_blown      = false,

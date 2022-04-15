@@ -23,6 +23,8 @@
 
 -module(yz_index).
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
+
 -compile([export_all, nowarn_export_all]).      % @todo //lelf
 
 -define(SOLR_INITFAILURES(I, S), kvc:path(erlang:iolist_to_binary(
@@ -233,7 +235,7 @@ local_create(Name) ->
 
             core_create(Name, SchemaName, CoreProps);
         {error, _Reason} ->
-            lager:error("Couldn't create index ~s because the schema ~s"
+            logger:error("Couldn't create index ~s because the schema ~s"
                         "isn't found", [Name, SchemaName]),
             ok
     end.
@@ -244,12 +246,12 @@ local_create(Name) ->
 delete_core_props_file(PropsFile) ->
     case file:delete(PropsFile) of
         ok ->
-            lager:info("Deleted Solr core properties file at path ~p", [PropsFile]), ok;
+            logger:info("Deleted Solr core properties file at path ~p", [PropsFile]), ok;
         {error, Reason} ->
             case Reason of
                 enoent -> ok;
                 _ ->
-                    lager:error(
+                    logger:error(
                         "Failed to delete Solr core properties file at path ~p; Reason: ~p.",
                         [PropsFile, Reason]
                     )
@@ -281,15 +283,15 @@ core_create(Name, SchemaName, CoreProps) ->
     ok = local_remove(Name, [{core, Name}]),
     case yz_solr:core(create, CoreProps) of
         {ok, _, _} ->
-            lager:info("Created index ~s with schema ~s",
+            logger:info("Created index ~s with schema ~s",
                        [Name, SchemaName]),
             ok;
         {error, exists} ->
-            lager:notice("Index ~s already exists in Solr, "
+            logger:notice("Index ~s already exists in Solr, "
                        "but not in Riak metadata",
                        [Name]);
         {error, Err} ->
-            lager:error("Couldn't create index ~s: ~p", [Name, Err])
+            logger:error("Couldn't create index ~s: ~p", [Name, Err])
     end.
 
 %% @doc Remove the index `Name' locally.
@@ -312,14 +314,14 @@ local_remove(Name, CoreProps) ->
             %% If an error (i.e. timeout) from ping, try to unload anyway
             case yz_solr:core(remove, CoreProps) of
                 {ok, _, _} ->
-                    lager:info("Unloaded previous instance of index ~s", [Name]);
+                    logger:info("Unloaded previous instance of index ~s", [Name]);
                 {error, {ok, "400", _, Resp}} ->
-                    lager:info("Couldn't unload index ~s prior to creating "
+                    logger:info("Couldn't unload index ~s prior to creating "
                                "a new instance of it. This is likely the first "
                                "time this index has been created. Solr "
                                "responded with ~s.", [Name, Resp]);
                 {error, UnloadErr} ->
-                    lager:error("Couldn't unload index ~s prior to creating "
+                    logger:error("Couldn't unload index ~s prior to creating "
                                 "a new instance of it: ~p", [Name, UnloadErr])
             end
     end.
@@ -469,11 +471,11 @@ sync_index(Pid, IndexName, Timeout) ->
             {ok, _, S} = yz_solr:core(status, [{wt,json},{core, IndexName}]),
             case ?SOLR_INITFAILURES(IndexName, S) of
                 [] ->
-                    lager:notice("Index ~s not created within ~p ms timeout",
+                    logger:notice("Index ~s not created within ~p ms timeout",
                                  [IndexName, Timeout]),
                     Pid ! timeout;
                 Error ->
-                    lager:error("Solr core error after trying to create index"
+                    logger:error("Solr core error after trying to create index"
                                 " ~s: ~p",
                                 [IndexName, Error]),
                     Pid ! {core_error, Error}

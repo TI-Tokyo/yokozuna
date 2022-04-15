@@ -11,6 +11,8 @@
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 
 -include_lib("basho_bench/include/basho_bench.hrl").
+-include_lib("kernel/include/logger.hrl").
+
 -define(MB, 1048576).
 -record(state, {cache, i, fields, file, finished=false, read_mfa, schema}).
 

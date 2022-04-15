@@ -23,6 +23,7 @@
 -export([start_link/0, start_drain_fsm/1, child_count/1, start_queue_pair/2, active_queues/0, sync_active_queue_pairs/0]).
 
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -export([init/1]).
 
@@ -47,7 +48,7 @@ start_drain_fsm(Parameters) ->
     ).
 -spec start_queue_pair(Index::index_name(), Partition::p()) -> ok.
 start_queue_pair(Index, Partition) ->
-    lager:info(
+    logger:info(
         "Starting solrq supervisor for index ~p and partition ~p",
         [Index, Partition]
     ),
@@ -127,7 +128,7 @@ sync_active_queue_pairs() ->
     ok.
 
 stop_queue_pair(Index, Partition) ->
-    lager:info(
+    logger:info(
         "Stopping solrq supervisor for index ~p and partition ~p",
         [Index, Partition]
     ),

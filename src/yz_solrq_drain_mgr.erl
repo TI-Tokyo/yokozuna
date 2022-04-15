@@ -33,6 +33,7 @@
     code_change/3]).
 
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(SERVER, ?MODULE).
 
@@ -75,11 +76,11 @@ handle_call({drain, Params}, From, #state{draining=Draining} = State) ->
     AlreadyDraining = lists:member(PartitionToDrain, Draining),
     case AlreadyDraining of
         true ->
-            lager:debug("Drain in progress."),
+            logger:debug("Drain in progress."),
             maybe_exchange_fsm_drain_error(ExchangeFSMPid, {error, in_progress}),
             {reply, {error, in_progress}, State};
         _ ->
-            lager:debug("Solrq drain starting for partition ~p", [PartitionToDrain]),
+            logger:debug("Solrq drain starting for partition ~p", [PartitionToDrain]),
             ExchangeFSMPid = proplists:get_value(
                 ?EXCHANGE_FSM_PID, Params, undefined
             ),
@@ -89,11 +90,11 @@ handle_call({drain, Params}, From, #state{draining=Draining} = State) ->
                                  maybe_drain(enabled(), ExchangeFSMPid, Params)
                              catch
                                  _:E ->
-                                     lager:info("An error occurred draining: ~p", [E]),
+                                     logger:info("An error occurred draining: ~p", [E]),
                                      maybe_exchange_fsm_drain_error(ExchangeFSMPid, E),
                                      {error, E}
                              end,
-                    lager:debug("Solrq drain about to send compelte message for partition ~p.", [PartitionToDrain]),
+                    logger:debug("Solrq drain about to send compelte message for partition ~p.", [PartitionToDrain]),
                     gen_server:cast(?SERVER, {drain_complete, PartitionToDrain}),
                     gen_server:reply(From, Result)
                 end
@@ -102,7 +103,7 @@ handle_call({drain, Params}, From, #state{draining=Draining} = State) ->
     end.
 
 handle_cast({drain_complete, Partition}, #state{draining = Draining} = State) ->
-    lager:debug("Solrq drain completed for partition ~p.", [Partition]),
+    logger:debug("Solrq drain completed for partition ~p.", [Partition]),
     NewDraining = lists:delete(Partition, Draining),
     {noreply, State#state{draining = NewDraining}}.
 
@@ -160,13 +161,13 @@ actual_drain(Params, ExchangeFSMPid) ->
 wait_for_workers_resumed_or_crash(DrainTimeout, Reference, Pid, ExchangeFSMPid) ->
     receive
         workers_resumed ->
-            lager:debug("Workers resumed."),
+            logger:debug("Workers resumed."),
             ok;
         {'DOWN', Reference, process, Pid, Reason} ->
-            lager:error("Drain ~p exited prematurely.", [Pid]),
+            logger:error("Drain ~p exited prematurely.", [Pid]),
             handle_drain_fsm_pid_crash(Reason, ExchangeFSMPid)
     after DrainTimeout ->
-        lager:debug("Drain ~p timed out.  Cancelling...", [Pid]),
+        logger:debug("Drain ~p timed out.  Cancelling...", [Pid]),
         yz_stat:drain_timeout(),
         _ = cancel(Reference, Pid),
         maybe_exchange_fsm_drain_error(ExchangeFSMPid, timeout),
@@ -176,10 +177,10 @@ wait_for_workers_resumed_or_crash(DrainTimeout, Reference, Pid, ExchangeFSMPid) 
 wait_for_exit(Reference, Pid, ExchangeFSMPid) ->
     receive
         {'DOWN', Reference, process, Pid, normal} ->
-            lager:debug("Drain ~p completed normally.", [Pid]),
+            logger:debug("Drain ~p completed normally.", [Pid]),
             ok;
         {'DOWN', Reference, process, Pid, Reason} ->
-            lager:error("Drain ~p crashed with reason ~p.", [Pid, Reason]),
+            logger:error("Drain ~p crashed with reason ~p.", [Pid, Reason]),
             handle_drain_fsm_pid_crash(Reason, ExchangeFSMPid)
     end.
 
@@ -196,7 +197,7 @@ cancel(Reference, Pid) ->
         ?YZ_APP_NAME, ?SOLRQ_DRAIN_CANCEL_TIMEOUT, ?SOLRQ_DRAIN_CANCEL_TIMEOUT_DEFAULT),
     case yz_solrq_drain_fsm:cancel(Pid, CancelTimeout) of
         timeout ->
-            lager:warning("Drain cancel timed out.  Killing FSM pid ~p...", [Pid]),
+            logger:warning("Drain cancel timed out.  Killing FSM pid ~p...", [Pid]),
             yz_stat:drain_cancel_timeout(),
             unlink_and_kill(Reference, Pid),
             {error, timeout};

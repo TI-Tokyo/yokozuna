@@ -20,6 +20,7 @@
 
 -include("yokozuna.hrl").
 -include("stacktrace.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -behavior(gen_server).
 
@@ -377,7 +378,7 @@ update_stats(RepairsDict) ->
 update_stat({_, 0}) ->
     ok;
 update_stat({{Partition, ShortPL}, Count}) ->
-    lager:debug("Repaired ~b keys during active anti-entropy "
+    logger:debug("Repaired ~b keys during active anti-entropy "
                 "exchange of partition ~p for preflist ~p",
                 [Count, Partition, ShortPL]),
     yz_kv:update_aae_exchange_stats(Partition, ShortPL, Count).

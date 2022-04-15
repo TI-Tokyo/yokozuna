@@ -22,7 +22,10 @@
 %%      external Solr/JVM OS process.
 
 -module(yz_solr_proc).
+
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
+
 -compile([export_all, nowarn_export_all]).
 -behavior(gen_server).
 
@@ -197,7 +200,7 @@ handle_info({'EXIT', _Port, Reason}, S=?S_MATCH) ->
 %% ibrowse does not protect from late replies - handle them here
 handle_info({Ref, _Msg} = Message, State)
     when is_reference(Ref) ->
-    lager:info("Received late reply: ~p", [Message]),
+    logger:info("Received late reply: ~p", [Message]),
     {noreply, State}.
 
 code_change(_, S, _) ->
@@ -289,10 +292,10 @@ ensure_data_dir(Dir) ->
         true ->
             %% For future YZ releases, this path will probably need to
             %% check the existing solr.xml to see if it needs updates
-            lager:debug("Existing solr config found, leaving it in place"),
+            logger:debug("Existing solr config found, leaving it in place"),
             ok;
         false ->
-            lager:info("No solr config found, creating a new one"),
+            logger:info("No solr config found, creating a new one"),
             ok = filelib:ensure_dir(SolrConfig),
             {ok, _} = file:copy(?YZ_SOLR_CONFIG_TEMPLATE, SolrConfig),
             ok
@@ -404,7 +407,7 @@ check_solr_index_versions(YZRootDir) ->
 check_index_solrconfig(SolrConfigIndexPath, DefaultSolrConfigPath, DefaultSolrConfigHash) ->
     case hash_file_contents(SolrConfigIndexPath) of
         DefaultSolrConfigHash ->
-            lager:debug("Solr config ~s appears to be up to date.", [SolrConfigIndexPath]);
+            logger:debug("Solr config ~s appears to be up to date.", [SolrConfigIndexPath]);
         ?SOLRCONFIG_2_0_HASH ->
             upgrade_solr_config(SolrConfigIndexPath, DefaultSolrConfigPath, "2.0");
         %% NB. Riak 2.0.8 introduced a small change to solrconfig.xml
@@ -417,7 +420,7 @@ check_index_solrconfig(SolrConfigIndexPath, DefaultSolrConfigPath, DefaultSolrCo
 -spec upgrade_solr_config(path(), path(), string()) -> ok.
 upgrade_solr_config(SolrConfigIndexPath, DefaultSolrConfigPath, Version) ->
     yz_misc:copy_files([DefaultSolrConfigPath], filename:dirname(SolrConfigIndexPath)),
-    lager:info(
+    logger:info(
         "Upgraded ~s from ~s (or higher) to the latest version.", [SolrConfigIndexPath, Version]
     ).
 
@@ -425,7 +428,7 @@ upgrade_solr_config(SolrConfigIndexPath, DefaultSolrConfigPath, Version) ->
 check_index_solrconfig_version(SolrConfigIndexPath) ->
     case get_lucene_match_version(SolrConfigIndexPath) of
         ?LUCENE_MATCH_4_7_VERSION ->
-            lager:warning(
+            logger:warning(
                 "The Solr configuration file ~s has been modified by the user and contains"
                 " an outdated version (~s) under the luceneMatchVersion XML tag."
                 "  Please consider reverting your changes or upgrading the luceneMatchVersion"
@@ -435,12 +438,12 @@ check_index_solrconfig_version(SolrConfigIndexPath) ->
         ?LUCENE_MATCH_4_10_4_VERSION ->
             ok;
         {error, no_lucene_match_version} ->
-            lager:error(
+            logger:error(
                 "The Solr configuration file ~s does not contain a luceneMatchVersion"
                 " XML tag!",
                 [SolrConfigIndexPath]);
         UnexpectedVersion ->
-            lager:error(
+            logger:error(
                 "The Solr configuration file ~s contains a luceneMatchVersion"
                 " XML tag with an unexpected value: ~s",
                 [SolrConfigIndexPath, UnexpectedVersion])

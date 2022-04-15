@@ -20,10 +20,12 @@
 
 -behaviour(gen_fsm).
 
--compile({nowarn_deprecated_function, 
+-compile({nowarn_deprecated_function,
             [{gen_fsm, start_link, 3},
                 {gen_fsm, send_event, 2},
                 {gen_fsm, sync_send_all_state_event, 3}]}).
+
+-include_lib("kernel/include/logger.hrl").
 
 %% API
 -export([start_link/0, start_link/1, cancel/2]).
@@ -167,7 +169,7 @@ init(Params) ->
 %% @end
 %%
 prepare(start, #state{partition = P} = State) ->
-    lager:debug("Solrq drain starting for partition ~p", [P]),
+    logger:debug("Solrq drain starting for partition ~p", [P]),
     SolrqIds = get_solrq_ids(P),
     maybe_send_drain_messages(P, SolrqIds, State).
 
@@ -188,7 +190,7 @@ wait_for_drain_complete({drain_complete, Token},
     NewState = State#state{tokens = Tokens2},
     case Tokens2 of
         [] ->
-            lager:debug("Solrq drain completed for all workers for partition ~p.  Resuming batching.", [Partition]),
+            logger:debug("Solrq drain completed for all workers for partition ~p.  Resuming batching.", [Partition]),
             yz_stat:drain_end(?YZ_TIME_ELAPSED(StartTS)),
             Self = self(),
             %%
@@ -310,4 +312,3 @@ maybe_callback(undefined) ->
     ok;
 maybe_callback(Callback) ->
     Callback().
-

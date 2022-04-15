@@ -21,6 +21,8 @@
 -compile(nowarn_export_all).
 -compile(export_all).
 
+-include_lib("kernel/include/logger.hrl").
+
 -define(M, yz_solrq_drain_fsm_orig).
 
 %% Crash the start_prepare message, in order to property handle
@@ -43,7 +45,7 @@ resume_workers_orig(Pid) ->
 
 %% Timeout on a cancel, full stop
 cancel_timeout(_Pid, _CancelTimeout) ->
-    lager:log(info, self(), "Intercepting cancel/2 and returning timeout"),
+    logger:log(info, self(), "Intercepting cancel/2 and returning timeout"),
     timeout.
 
 %% restore the original cancel

@@ -40,6 +40,7 @@
 -export([create_table/0]).
 
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(NUM_TICKS_START, 1).
 -define(ETS, ets_yz_events).
@@ -110,7 +111,7 @@ handle_info(tick, S) ->
             remove_non_owned_data(yz_cover:get_ring_used()))
     catch
         _:E  ->
-            lager:warning(
+            logger:warning(
                 "An error occurred syncronizing metadata with Solr: ~p"
                 "  An attempt will be retried after the next tick.", [E])
     end,
@@ -260,7 +261,7 @@ sync_indexes() ->
             case {Removed, Added} of
                 {[], []} -> ok;
                 _ ->
-                    lager:info("Delta: Removed: ~p Added: ~p Same: ~p",
+                    logger:info("Delta: Removed: ~p Added: ~p Same: ~p",
                         [Removed, Added, Same])
             end,
             ok = yz_solrq_sup:sync_active_queue_pairs(),
@@ -328,7 +329,7 @@ calculate_current_load() ->
         Num when is_integer(Num) ->
             Num;
         Unexpected ->
-            lager:debug("Unexpected value for statistic [queue, total_length]: ~p",
+            logger:debug("Unexpected value for statistic [queue, total_length]: ~p",
                 [Unexpected]),
             ?UNKNOWN_QUEUE_LENGTH
     end.

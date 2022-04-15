@@ -22,6 +22,7 @@
 -compile([export_all, nowarn_export_all]).      % @todo //lelf
 -behaviour(gen_server).
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -153,7 +154,7 @@ init([]) ->
                true -> manual;
                false -> automatic
            end,
-    set_debug(proplists:is_defined(debug, Opts)),
+    %% set_debug(proplists:is_defined(debug, Opts)),
     S = #state{mode=Mode,
                trees=Trees,
                kv_trees=[],
@@ -205,7 +206,7 @@ handle_call({set_mode, NewMode}, _From, S=#state{mode=CurrentMode}) ->
     {reply, ok, S3};
 
 handle_call(Request, From, S) ->
-    lager:warning("Unexpected call: ~p from ~p", [Request, From]),
+    logger:warning("Unexpected call: ~p from ~p", [Request, From]),
     {reply, unexpected_call, S}.
 
 handle_cast({requeue_poke, Index}, S) ->
@@ -217,13 +218,13 @@ handle_cast({exchange_status, Pid, Index, {StartIdx, N}, Status}, S) ->
     {noreply, S2};
 
 handle_cast(clear_trees, S) ->
-    lager:info("Clearing YZ hashtrees and stopping all current exchanges."),
+    logger:info("Clearing YZ hashtrees and stopping all current exchanges."),
     clear_all_exchanges(S#state.exchanges),
     clear_all_trees(S#state.trees),
     {noreply, S};
 
 handle_cast(expire_trees, S) ->
-    lager:info("Expiring YZ hashtrees."),
+    logger:info("Expiring YZ hashtrees."),
     ok = expire_all_trees(S#state.trees),
     {noreply, S};
 
@@ -232,7 +233,7 @@ handle_cast({release_lock, Pid}, S) ->
     {noreply, S2};
 
 handle_cast(_Msg, S) ->
-    lager:warning("Unexpected cast: ~p", [_Msg]),
+    logger:warning("Unexpected cast: ~p", [_Msg]),
     {noreply, S}.
 
 handle_info(tick, S) ->
@@ -274,7 +275,7 @@ handle_info({'DOWN', Ref, _, Obj, Status}, S) ->
     {noreply, S4};
 
 handle_info(_Msg, S) ->
-    lager:warning("Unexpected msg: ~p", [_Msg]),
+    logger:warning("Unexpected msg: ~p", [_Msg]),
     {noreply, S}.
 
 terminate(_Reason, _S) ->
@@ -320,7 +321,7 @@ settings() ->
         {off, Opts} ->
             {false, Opts};
         X ->
-            lager:warning("Invalid setting for yz/riak_kv/anti_entropy: ~p", [X]),
+            logger:warning("Invalid setting for yz/riak_kv/anti_entropy: ~p", [X]),
             application:set_env(?YZ_APP_NAME, anti_entropy, {off, []}),
             {false, []}
     end.
@@ -451,7 +452,7 @@ maybe_clear_exchange(Ref, Status, S) ->
         false ->
             S;
         {value, {Idx,Ref,_Pid}, Exchanges} ->
-            lager:debug("Untracking exchange: ~p :: ~p", [Idx, Status]),
+            logger:debug("Untracking exchange: ~p :: ~p", [Idx, Status]),
             S#state{exchanges=Exchanges}
     end.
 
@@ -542,11 +543,11 @@ init_throttle(InitialThrottle) ->
 do_exchange_status(_Pid, Index, {StartIdx, N}, Status, S) ->
     case Status of
         ok ->
-            lager:debug("Finished exchange for partition ~p of preflist ~p",
+            logger:debug("Finished exchange for partition ~p of preflist ~p",
                         [Index, {StartIdx, N}]),
             S;
         _ ->
-            lager:debug("Requeue exchange for partition ~p of preflist ~p "
+            logger:debug("Requeue exchange for partition ~p of preflist ~p "
                         "for reason ~p",
                         [Index, {StartIdx, N}, Status]),
             requeue_exchange(Index, {StartIdx, N}, S)
@@ -715,11 +716,11 @@ set_debug(Enabled) ->
                yz_solrq_drain_fsm],
     case Enabled of
         true ->
-            [lager:trace_console([{module, Mod}]) || Mod <- Modules];
+            [logger:trace_console([{module, Mod}]) || Mod <- Modules];
         false ->
             [begin
-                 {ok, Trace} = lager:trace_console([{module, Mod}]),
-                 lager:stop_trace(Trace)
+                 {ok, Trace} = logger:trace_console([{module, Mod}]),
+                 logger:stop_trace(Trace)
              end || Mod <- Modules]
     end,
     ok.

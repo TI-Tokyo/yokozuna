@@ -23,6 +23,7 @@
 -export([start/2, stop/1, prep_stop/1, components/0]).
 -compile([export_all, nowarn_export_all]).      % @todo //lelf
 -include("yokozuna.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% 27 is message type rpbsearchqueryreq
 %% 28 is message type rpbsearchqueryresp
@@ -71,7 +72,7 @@ prep_stop(State) ->
     %% Wrap shutdown code with a try/catch - application carries on regardless,
     %% no error message or logging about the failure otherwise.
     try
-        lager:info("Stopping application yokozuna.", []),
+        logger:info("Stopping application yokozuna.", []),
         riak_core_node_watcher:service_down(yokozuna),
         disable_components(),
         riak_api_pb_service:deregister(?QUERY_SERVICES),
@@ -79,13 +80,13 @@ prep_stop(State) ->
         yz_solrq_drain_mgr:drain()
     catch
         Type:Reason ->
-            lager:error("Stopping application yokozuna - ~p:~p.",
+            logger:error("Stopping application yokozuna - ~p:~p.",
                         [Type, Reason])
     end,
     State.
 
 stop(_State) ->
-    lager:info("Stopped application yokozuna.", []),
+    logger:info("Stopped application yokozuna.", []),
     ok.
 
 %% @private
