@@ -4,28 +4,24 @@ PULSE_TESTS = yz_solrq_eqc
 
 REBAR ?= $(shell pwd)/rebar3
 
-.PHONY: deps rel stagedevrel test
+.PHONY: rel stagedevrel test
 
-all: deps compile-riak-test
+all: compile-riak-test
 
-compile: deps
+compile:
 	$(REBAR) compile
 
 compile-riak-test: compile
 	mkdir -p misc/bench/ebin
 	cp _build/default/lib/yokozuna/misc/bench/src/*.beam misc/bench/ebin/
 
-deps:
-	$(REBAR) get-deps
-
 clean:
 	$(REBAR) clean
+
+distclean: clean
 	rm -rf riak_test/ebin
 	rm -rf _build
 	git clean -dfx priv/
-
-distclean: clean
-	$(REBAR) delete-deps
 
 ##
 ## Dialyzer
@@ -82,7 +78,7 @@ dialyzer-rt-run:
 		dialyzer -Wno_return $(DIALYZER_FLAGS) --plts $${PLTS} -c $(RIAK_TEST_PATH)/ebin; \
 	fi
 
-dialyzer_rt: deps ${PLT} ${LOCAL_PLT} $(TEST_PLT) dialyzer-rt-run
+dialyzer_rt: ${PLT} ${LOCAL_PLT} $(TEST_PLT) dialyzer-rt-run
 
 ##
 ## Purity
