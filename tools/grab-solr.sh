@@ -25,7 +25,7 @@ TMP_FILE=$TMP_DIR/$FILENAME
 SRC_DIR=$BUILD_DIR/$VSN
 EXAMPLE_DIR=$SRC_DIR/example
 COL1_DIR=$EXAMPLE_DIR/solr/collection1
-: ${ARTIFACT_URL_PREFIX:="http://s3.amazonaws.com/files.basho.com"}
+: ${ARTIFACT_URL_PREFIX:="https://files-source.tiot.jp/riak/"}
 
 check_for_solr()
 {
